@@ -13,6 +13,7 @@ class SnapshotTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = pathlib.Path(self.temp.name) / 'root'
         files = {'opt/attosys/company.yaml': 'org: atto\nagents:\n  hr: {}\n',
+                 'opt/attosys/objectives.yaml': 'mission: test company objective\n',
                  'opt/attosys/local-state.json': '{"version":1,"browser_ports":{"atto-hr":9229}}',
                  'opt/attosys/secrets.yaml': 'private test sentinel',
                  'home/atto-hr/agent/memory/lesson.md': 'keep this knowledge',
@@ -35,6 +36,7 @@ class SnapshotTests(unittest.TestCase):
         names = set(manifest['files'])
         for name in ('opt/attosys/secrets.yaml', 'home/atto-hr/browser/private', 'run/attosys/llm.env', 'etc/installed-tool.conf'):
             self.assertNotIn(name, names)
+        self.assertIn('opt/attosys/objectives.yaml', names)
         for name in ('home/atto-hr/.venv/bin/tool', 'home/atto-hr/project/browser/code.js', 'var/lib/atto-chat/chat.sqlite3-wal'):
             self.assertIn(name, names)
         self.assertEqual(manifest['files']['home/atto-hr/agent/memory/lesson.md']['mode'], 0o600)
