@@ -86,7 +86,7 @@ if [ "$ASSUME_YES" -ne 1 ]; then
   echo "  - agent unix users + homes: /home/<org>-<agent>"
   echo "  - shared group: <org>"
   echo "  - sudoers files: /etc/sudoers.d/<org>-<agent>"
-  echo "  - generated state: venv/ harness/ proxy/ shared/ handbook.md company.yaml secrets.yaml"
+  echo "  - generated state: venv/ harness/ proxy/ shared/ handbook.md company.yaml objectives.yaml secrets.yaml"
   [ "$PURGE" -eq 1 ] && echo "  - the repo itself: $ROOT"
   if [ "$KEEP_STATE" -eq 1 ]; then
     echo "  - keeping durable topic-id state at /var/lib/attosys/ (reinstall reuses topics)"
@@ -159,9 +159,9 @@ except Exception: pass" 2>/dev/null || true)
 
 echo "=== removing generated state ==="
 rm -rf "$ROOT/venv" "$ROOT/harness" "$ROOT/proxy" "$ROOT/shared" \
-       "$ROOT/handbook.md" "$ROOT/company.yaml" "$ROOT/secrets.yaml" \
+       "$ROOT/handbook.md" "$ROOT/company.yaml" "$ROOT/objectives.yaml" "$ROOT/secrets.yaml" \
        "$ROOT/mux/__pycache__" "$ROOT/__pycache__"
-echo "  cleaned: venv/ harness/ proxy/ shared/ handbook.md company.yaml secrets.yaml"
+echo "  cleaned: venv/ harness/ proxy/ shared/ handbook.md company.yaml objectives.yaml secrets.yaml"
 
 # --- delete forum topics (using durable state + bot token, both pre-nuke) ----
 # Telegram has no list-topics API, so we can only delete what we recorded.
