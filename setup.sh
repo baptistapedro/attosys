@@ -20,7 +20,11 @@ ask() {  # ask VAR "prompt" "regex" ; loops until the answer matches regex
   printf -v "$var" '%s' "$val"
 }
 
+# Remember whether this run created company.yaml. Only a new company may safely
+# inherit default objectives; an existing company must supply its own mission.
+NEW_COMPANY=0
 if [ ! -f company.yaml ]; then
+  NEW_COMPANY=1
   echo
   echo "=== Configure your company ==="
   ask ORG       "org slug (lowercase, <=12 chars; names users/group/units/topics)" '^[a-z0-9]{1,12}$'
@@ -56,6 +60,10 @@ if [ ! -f company.yaml ]; then
 import os, yaml
 org = os.environ["ORG"]
 prov = os.environ.get("PROVIDER") or ""
+
+# Keep the default roster in one source of truth. The old setup code duplicated
+# four hardcoded roles here; company.example.yaml now defines every default role.
+template = yaml.safe_load(open("company.example.yaml"))
 company = {
     "org": org, "name": os.environ["NAME"],
     "ceo": {"name": os.environ["CEO_NAME"], "telegram_user_id": int(os.environ["CEO_TGID"])},
@@ -63,12 +71,7 @@ company = {
     "mux_url": f"http://127.0.0.1:{os.environ['MUX_PORT']}",
     "model": os.environ["MODEL"],
     "api_base": os.environ["API_BASE"],
-    "agents": {
-        "hr":       {"sudo": True, "description": "Head of HR and Chief of Staff."},
-        "sysadmin": {"description": "Systems Administrator. Owns the substrate."},
-        "labs":     {"description": "Exploration and builder agent."},
-        "trainer":  {"description": "Company trainer."},
-    },
+    "agents": template["agents"],
 }
 # Wire the proxy only when a known provider was chosen; blank provider means
 # agents talk to api_base directly (no per-agent logging) — the escape hatch
@@ -85,6 +88,19 @@ PY
   echo "wrote company.yaml + secrets.yaml"
 else
   echo "company.yaml exists — using it (delete it to reconfigure)"
+fi
+
+# Employees consume objectives.yaml, not the example. Seed it from the example
+# only for a new company so setup never overwrites or guesses an existing mission.
+if [ ! -f objectives.yaml ]; then
+  if [ "$NEW_COMPANY" -eq 1 ]; then
+    cp objectives.example.yaml objectives.yaml
+    chmod 644 objectives.yaml
+    echo "wrote objectives.yaml from the default company profile"
+  else
+    echo "missing objectives.yaml — copy objectives.example.yaml and edit it for this company" >&2
+    exit 1
+  fi
 fi
 
 ORG=$(python3 -c "import yaml;print(yaml.safe_load(open('company.yaml'))['org'])")
@@ -163,7 +179,7 @@ UNIT
   echo "proxy running: ${ORG}-proxy on 127.0.0.1:${PROXY_PORT}"
 fi
 
-# --- 6. hire the genesis fleet ----------------------------------------------
+# --- 6. hire the configured roster ------------------------------------------
 if [ "$TG_READY" -eq 0 ]; then
   echo
   echo "Telegram group not ready — skipped hiring. To finish setup:"
@@ -174,7 +190,10 @@ if [ "$TG_READY" -eq 0 ]; then
   exit 0
 fi
 
-./hire.py hr sysadmin labs trainer
+# Provision the complete runtime roster from company.yaml instead of the old
+# fixed `hr sysadmin labs trainer` list.
+mapfile -t COMPANY_ROLES < <(python3 -c "import yaml; print(*yaml.safe_load(open('company.yaml'))['agents'], sep='\n')")
+./hire.py "${COMPANY_ROLES[@]}"
 
 echo
 echo "done — agents check in on their Telegram topics. Logs:"
