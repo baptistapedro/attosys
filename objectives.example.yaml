@@ -7,6 +7,7 @@ mission: Continuously find exploitable vulnerabilities through source-level stat
 
 repositories:
   - https://github.com/php/php-src
+  # add more repos here for the autonomous continuous audit. Can hold multiple ones.
 
 work_cycle:
   ceo_assigns_work: false
