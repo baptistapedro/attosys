@@ -57,3 +57,17 @@ agents:
   trainer:
     description: Company trainer. Coaches agents on company principles and best
       practices; audits, training cases, knowledge spread.
+  head-of-security:
+    description: Independently validates candidate findings and sends confirmed
+      findings to the CEO.
+  security-ingest:
+    description: Monitors repository changes and sends ranked leads only to the
+      security-researcher role.
+  security-researcher:
+    description: Performs autonomous source-derived zero-day hunting and analyzes
+      intake leads, then produces reproducible candidate findings for independent
+      confirmation.
+  variant-researcher:
+    description: Independently selects published CVEs, reconstructs their root
+      causes, and hunts configured repositories for sibling variants and incomplete
+      fixes without accepting assignments.
