@@ -20,7 +20,7 @@ STOPSIGNAL SIGRTMIN+3
 ENTRYPOINT ["/lib/systemd/systemd", "--system", "--log-target=console", "--unit=attosys-maintenance.target"]
 '''
 MANIFEST = 'attosys-manifest.json'
-COMPANY_FILES = ('opt/attosys/company.yaml', 'opt/attosys/handbook.md', 'opt/attosys/local-state.json', 'opt/attosys/shared')
+COMPANY_FILES = ('opt/attosys/company.yaml', 'opt/attosys/objectives.yaml', 'opt/attosys/handbook.md', 'opt/attosys/local-state.json', 'opt/attosys/shared')
 STATE_DIRS = ('var/lib/atto-chat', 'var/lib/atto-mux', 'var/lib/atto-proxy')
 
 
