@@ -22,7 +22,9 @@ UNITS = pathlib.Path("/etc/systemd/system")
 READY = pathlib.Path("/run/attosys/ready")
 ENV_FILE = pathlib.Path("/run/attosys/llm.env")
 STATE = ROOT / "local-state.json"
-DATABASES = ("/var/lib/atto-chat/chat.sqlite3", "/var/lib/atto-mux/updates.db", "/var/lib/atto-proxy/requests.db")
+# expanded the tuple to also include the work-queue database
+DATABASES = ("/var/lib/atto-chat/chat.sqlite3", "/var/lib/atto-mux/updates.db",
+             "/var/lib/atto-proxy/requests.db", "/opt/attosys/shared/workqueue.sqlite3")
 
 
 def run(*args):
@@ -45,6 +47,29 @@ def roster(company):
     if not names or any(not re.fullmatch(r"[a-z][a-zA-Z0-9_-]{0,31}", name) for name in names.values()):
         raise ValueError("invalid company roster")
     return names
+
+# reusable YAML config loader
+# TODO: just using it on new code added, need to apply on the first/original version (not a priority yet)
+def load_mapping(path, label):
+    if not path.is_file():
+        raise ValueError(f"missing {label}: {path}")
+    loaded = yaml.safe_load(path.read_text())
+    if not isinstance(loaded, dict):
+        raise ValueError(f"{label} must be a YAML mapping")
+    return loaded
+
+
+def validate_objectives(company):
+    objectives = load_mapping(ROOT / "objectives.yaml", "objectives.yaml")
+    if not isinstance(objectives.get("mission"), str) or not objectives["mission"].strip():
+        raise ValueError("objectives.yaml must contain a mission string")
+    roles = objectives.get("roles", {})
+    if not isinstance(roles, dict):
+        raise ValueError("objectives.yaml roles must be a mapping when present")
+    unknown = sorted(set(roles) - set(company.get("agents", {})))
+    if unknown:
+        raise ValueError("objectives.yaml references roles absent from company.yaml: " + ", ".join(unknown))
+    return objectives
 
 
 def unit(name, command, user, extra=""):
@@ -146,6 +171,7 @@ def stop(full=False):
 
 def prepare():
     company = yaml.safe_load((ROOT / 'company.yaml').read_text())
+    validate_objectives(company)
     for role, user in roster(company).items():
         if not (pathlib.Path('/home') / user / 'agent/config.json').exists():
             continue
@@ -164,6 +190,7 @@ def check():
     if state.get('version') != 1:
         raise ValueError("unsupported saved company version")
     company = yaml.safe_load((ROOT / "company.yaml").read_text())
+    validate_objectives(company)
     for user in roster(company).values():
         pwd.getpwnam(user)
         for relative in ("agent/config.json", "agent/SOUL.md", "subconscious/config.json"):
@@ -180,8 +207,12 @@ def bootstrap(options):
         raise ValueError('restore is incomplete; retry the original snapshot with a new --name')
     key = options.get("api_key") or ""
     workers = options.get("workers", True)
-    duration = int(options.get("duration", 900))
-    if duration < 1 or any(character in key for character in "\r\n\x00"):
+    
+    # use None as the explicit "no deadline" value for continuous runs. Otherwise, use a positive duration (default: 900 seconds).
+    continuous = bool(options.get("continuous", False))
+    duration_value = options.get("duration", 900)
+    duration = None if continuous else int(duration_value)
+    if (duration is not None and duration < 1) or any(character in key for character in "\r\n\x00"):
         raise ValueError("invalid key or run duration")
     if workers and not key and not ENV_FILE.is_file():
         raise ValueError("an API key is required to start employees")
@@ -201,12 +232,19 @@ def bootstrap(options):
     if existing:
         company = yaml.safe_load(company_path.read_text())
     else:
+        default_company = load_mapping(ROOT / "company.example.yaml", "company.example.yaml")
         company = {"org": "atto", "name": "Local Attosys", "ceo": {"name": "CEO", "telegram_user_id": 1},
                    "mux_url": "http://127.0.0.1:8811",
                    "provider": "openai", "model": options.get("model", "gpt-6-astra"), "proxy_url": "http://127.0.0.1:8810",
                    "llm_env_file": str(ENV_FILE), "agent_config": {"provider": "openai_responses", "max_tokens": 4096, "multimodal_support": True},
-                   "agents": {role: {"sudo": role == "hr", "description": description} for role, description in {
-                       "hr": "Head of HR and Chief of Staff", "sysadmin": "Owns company infrastructure", "labs": "Builds capabilities", "trainer": "Investigates and improves employee behavior"}.items()}}
+                   "agents": default_company["agents"]}
+    objectives_path = ROOT / "objectives.yaml"
+    if not objectives_path.exists():
+        if existing:
+            raise ValueError("existing company is missing objectives.yaml")
+        example = load_mapping(ROOT / "objectives.example.yaml", "objectives.example.yaml")
+        write(objectives_path, yaml.safe_dump(example, sort_keys=False, allow_unicode=True))
+    validate_objectives(company)
     telegram.configure(ROOT, company, options, write, existing=existing)
     names = roster(company)
     prepare()
@@ -262,8 +300,11 @@ def bootstrap(options):
         subprocess.run(["systemctl", "stop", "atto-discovery-deadline.timer", "atto-discovery-deadline.service"], capture_output=True)
         subprocess.run(["systemctl", "reset-failed", "atto-discovery-deadline.service"], capture_output=True)
         write(READY, "ready\n", 0o600)
-        run("systemd-run", "--unit=atto-discovery-deadline", "--timer-property=AccuracySec=1s", f"--on-active={duration}",
-            "/usr/bin/python3", str(ROOT / "local/bootstrap.py"), "stop")
+        
+        # For a finite run, create a transient systemd timer that stops employee workers after `duration` seconds.
+        if duration is not None:
+            run("systemd-run", "--unit=atto-discovery-deadline", "--timer-property=AccuracySec=1s", f"--on-active={duration}",
+                "/usr/bin/python3", str(ROOT / "local/bootstrap.py"), "stop")
         run("systemctl", "daemon-reload")
         run("systemctl", "reset-failed", *[f"{user}.service" for user in names.values()])
         run("systemctl", "start", "multi-user.target", *[f"{user}.service" for user in names.values()])
