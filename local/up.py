@@ -20,7 +20,10 @@ import telegram
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCES = {
     "attobot": ["agent.py", "SOUL.md", "opt", "requirements.txt", "lab-constraints.txt"],
-    "attosys": ["hire.py", "seed.py", "services.py", "mux", "templates", "local/chat.py", "local/bootstrap.py", "local/telegram.py", "local/snapshot.py", "local/attosys-maintenance.target"],
+    # Ship configuration seeds in the image, not company runtime state. On first boot,
+    # bootstrap.py uses them to create /opt/attosys/company.yaml and objectives.yaml;
+    # hired employees read those generated runtime files, never the *.example.yaml files.
+    "attosys": ["hire.py", "seed.py", "services.py", "workqueue.py", "company.example.yaml", "objectives.example.yaml", "mux", "templates", "local/chat.py", "local/bootstrap.py", "local/telegram.py", "local/snapshot.py", "local/attosys-maintenance.target"],
     "attotrain": ["*.py", "README.md", "steps", "tools", "tests"],
     "attobrowser": ["atto", "lib", "package.json", "package-lock.json"],
     "llmproxy": ["server.js", "stats-handler.js", "index.html", "package.json", "package-lock.json"],
@@ -195,7 +198,10 @@ def start(runtime, args):
                 key = getpass.getpass('OpenAI API key (kept only in VM tmpfs): ')
                 if not key:
                     raise ValueError('an API key is required')
-        runtime.bootstrap(args.name, 'start', {'api_key': key, 'model': args.model, 'duration': args.duration, 'workers': not args.idle, **chat})
+        continuous = getattr(args, 'continuous', False)
+        runtime.bootstrap(args.name, 'start', {'api_key': key, 'model': args.model,
+                          'duration': None if continuous else args.duration,
+                          'continuous': continuous, 'workers': not args.idle, **chat})
     except BaseException:
         runtime.run('stop', args.name)
         raise
@@ -208,7 +214,12 @@ def start(runtime, args):
         print('Captured model requests: http://127.0.0.1:8810')
     else:
         print('No host ports published.')
-    print('Employees remain stopped.' if args.idle else f'Employee run deadline: {args.duration} seconds.')
+    if args.idle:
+        print('Employees remain stopped.')
+    elif getattr(args, 'continuous', False):
+        print('Employees run continuously until explicitly stopped.')
+    else:
+        print(f'Employee run deadline: {args.duration} seconds.')
 
 
 def stop(runtime, args):
@@ -328,6 +339,7 @@ def main():
     parser.add_argument('--dns', default=None)
     parser.add_argument('--model', default='gpt-6-astra')
     parser.add_argument('--duration', type=int, default=900)
+    parser.add_argument('--continuous', action='store_true', help='run employees without a deadline')
     parser.add_argument('--build-only', action='store_true')
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--idle', action='store_true', help='start infrastructure without employees or an API key')
@@ -338,12 +350,14 @@ def main():
     args = parser.parse_args()
     if platform.system() not in ('Darwin', 'Linux'):
         parser.error('this launcher supports macOS and Linux hosts')
-    if not re.fullmatch(r'[a-z][a-z0-9-]{0,62}', args.name) or args.duration < 1:
+    if not re.fullmatch(r'[a-z][a-z0-9-]{0,62}', args.name) or (not args.continuous and args.duration < 1):
         parser.error('invalid company name or duration')
     if (args.command in ('save', 'restore')) != (args.archive is not None):
         parser.error('save and restore require an archive; start and stop do not take one')
     if args.build_only and args.command != 'start':
         parser.error('--build-only is only valid with start')
+    if args.continuous and args.command != 'start':
+        parser.error('--continuous is only valid with start')
     if (args.telegram or args.telegram_chat_id is not None or args.telegram_user_id is not None) and (args.command != 'start' or args.build_only):
         parser.error('Telegram options are only valid when starting a company')
     lock_path = pathlib.Path(tempfile.gettempdir()) / f'attosys-{os.getuid()}-{args.name}.lock'
