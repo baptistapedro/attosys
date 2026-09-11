@@ -1,0 +1,81 @@
+# Copy to objectives.yaml and edit the repository list if needed.
+# SOUL files define procedures. This file defines what the company continuously does.
+
+mission: Continuously find exploitable vulnerabilities through source-level static
+  analysis of the configured open-source repositories, and deliver only independently
+  confirmed findings with reproducible Proofs of Concept.
+
+repositories:
+  - https://github.com/php/php-src
+
+work_cycle:
+  ceo_assigns_work: false
+  configured_repositories_are_authorized_targets: true
+  service_completion: never
+  work_item_completion: Record the reviewed revision, scope, evidence, conclusion,
+    and any follow-up before selecting the next item.
+  selection_order:
+    - New security-sensitive commits, reviews, pull requests, releases, and tags
+    - Queued changes with the highest expected exploit impact
+    - Stale high-risk attack surfaces
+    - Sibling variants derived from published CVE root causes and fixes
+    - Historical code affected by new techniques, tools, or assumptions
+
+priority_signals:
+  - Attacker-controlled input
+  - Memory ownership, lifetime, bounds, or unsafe operations
+  - Parsers, protocol handlers, authentication, or authorization
+  - Privilege, sandbox, namespace, or cryptographic boundaries
+  - New syscalls, drivers, network paths, or exposed features
+  - Concurrency, locking, reference counting, or asynchronous state
+  - Large refactors, cross-component changes, or known vulnerable patterns
+
+finding_gate:
+  researcher_submission_requires:
+    - The affected repository and exact revision are identified
+    - The root cause and attacker-controlled path are demonstrated from source
+    - The security impact is concrete and realistically exploitable
+    - A complete reproducible PoC demonstrates the claimed impact
+    - A fix direction is stated
+  head_confirmation_requires:
+    - The Head of Security independently confirms the source analysis and PoC
+    - The target revision does not contain the fix
+    - The same root cause and impact are not already documented as a known issue
+    - Documented intended behavior does not preserve the claimed security property
+  ceo_delivery_requires: Every researcher submission requirement and Head of
+    Security confirmation requirement is satisfied.
+  never_report:
+    - Tool warnings without source-level confirmation
+    - Theoretical weaknesses without a realistic exploit path
+    - Crashes or undefined behavior without a demonstrated security impact
+    - Code quality, best-practice, or defense-in-depth observations
+  format: templates/reports/finding.md
+
+roles:
+  head-of-security:
+    responsibility: Independently validate candidate findings and send confirmed
+      finding files to the CEO.
+    minimum_30_day_threshold:
+      finding_quality_reviews: 4
+  security-ingest:
+    responsibility: Monitor every configured repository, rank new repository
+      changes, maintain attack-surface maps, and dispatch leads only to the
+      security-researcher role.
+    minimum_30_day_threshold:
+      ranked_assignments_per_active_researcher: 4
+  security-researcher:
+    responsibility: Analyze intake leads and independently hunt for zero-days using
+      source-derived hypotheses rather than published CVEs, develop PoCs, and
+      submit candidate findings without waiting for assignments.
+    minimum_30_day_threshold:
+      min_amount_of_findings: 4
+  variant-researcher:
+    responsibility: Self-select published CVEs, reconstruct their root causes and
+      fixes, search the configured repositories for exploitable sibling variants,
+      develop PoCs, and submit candidates without accepting assignments.
+    minimum_30_day_threshold:
+      min_amount_of_findings: 4
+
+performance_rule: During every rolling 30-day period, each employee must meet its
+  role's minimum output. Only complete, evidence-backed items count. Missing the
+  threshold triggers HR performance review and may lead to offboarding.
