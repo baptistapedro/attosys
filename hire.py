@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provision agents from company.yaml + secrets.yaml.
+"""Provision agents from company.yaml + objectives.yaml + secrets.yaml.
 
 Usage: sudo ./hire.py <role> [<role> ...]        e.g. sudo ./hire.py hr labs
 
@@ -15,6 +15,7 @@ import grp, json, os, pathlib, pwd, shutil, subprocess, sys
 import requests
 import yaml
 from services import employee_service
+from workqueue import initialize as initialize_workqueue
 
 ROOT = pathlib.Path(__file__).resolve().parent
 
@@ -24,12 +25,26 @@ start = "--no-start" not in sys.argv[1:]
 roles = [arg for arg in sys.argv[1:] if arg != "--no-start"]
 if not roles:
     sys.exit(__doc__.strip())
-for f in ("company.yaml", "secrets.yaml", "harness/agent.py", "venv/bin/python"):
+for f in ("company.yaml", "objectives.yaml", "secrets.yaml", "harness/agent.py", "venv/bin/python"):
     if not (ROOT / f).exists():
         sys.exit(f"missing {ROOT / f} — see install.sh / README")
 
 company = yaml.safe_load((ROOT / "company.yaml").read_text())
+objectives = yaml.safe_load((ROOT / "objectives.yaml").read_text())
 secrets = yaml.safe_load((ROOT / "secrets.yaml").read_text())
+
+# requires objectives.yaml, validates its basic shape, and rejects objective roles that do not exist in this company's configurable agent roster.
+if not isinstance(company, dict) or not isinstance(company.get("agents"), dict) or not company["agents"]:
+    sys.exit("company.yaml must contain a non-empty agents mapping")
+if not isinstance(objectives, dict) or not isinstance(objectives.get("mission"), str):
+    sys.exit("objectives.yaml must contain a mission string")
+objective_roles = objectives.get("roles", {})
+if not isinstance(objective_roles, dict):
+    sys.exit("objectives.yaml roles must be a mapping when present")
+unknown_roles = sorted(set(objective_roles) - set(company["agents"]))
+if unknown_roles:
+    sys.exit(f"objectives.yaml references roles absent from company.yaml: {', '.join(unknown_roles)}")
+
 ORG = company["org"]
 NAME = company.get("name", ORG)
 PREFIX = ORG
@@ -39,6 +54,8 @@ assert ORG.isalnum() and ORG.islower() and len(ORG) <= 12, \
 
 os.chmod(ROOT / "secrets.yaml", 0o600)
 os.chmod(ROOT / "company.yaml", 0o644)
+# lets employees read the objectives that govern their autonomous work
+os.chmod(ROOT / "objectives.yaml", 0o644)
 # agents need to traverse into ROOT for the handbook, org chart and harness
 mode = ROOT.stat().st_mode & 0o777
 if mode & 0o005 != 0o005:
@@ -58,10 +75,39 @@ PROXY_URL = company.get("proxy_url")
 PROVIDER = company.get("provider")
 
 
+def role_label(role):
+    """Convert a hyphenated company role into its human-readable SOUL label.
+
+    Example: `head-of-security` becomes `Head of Security` and `hr` becomes
+    `HR`. employee_placeholders() wraps the label as `{{Head of Security}}`
+    and maps it to the configured employee name or names.
+    """
+    acronyms = {"ai": "AI", "ceo": "CEO", "ciso": "CISO", "cto": "CTO",
+                "hr": "HR", "qa": "QA"}
+    minor_words = {"and", "for", "in", "of", "on", "the", "to"}
+    words = role.split("-")
+    return " ".join(acronyms.get(word, word if index and word in minor_words else word.title())
+                    for index, word in enumerate(words))
+
+
+def employee_placeholders():
+    """Map role and soul labels to the configured employees that fill them."""
+    employees = {}
+    for role, spec in company["agents"].items():
+        soul = spec.get("soul", role)
+        for key in (role, soul) if soul != role else (role,):
+            employees.setdefault(key, []).append(f"{PREFIX}-{role}")
+    return {"{{" + role_label(role) + "}}": ", ".join(names)
+            for role, names in employees.items()}
+
+# resolves dynamic employee references such as {{Head of Security}} while
+# retaining the existing company, CEO, root, and current-agent placeholders
 def render(template, agent):
     text = (ROOT / template).read_text()
-    for k, v in {"{{COMPANY}}": NAME, "{{company}}": PREFIX, "{{CEO}}": CEO,
-                 "{{ROOT}}": str(ROOT), "{{AGENT}}": agent}.items():
+    replacements = employee_placeholders()
+    replacements.update({"{{COMPANY}}": NAME, "{{company}}": PREFIX, "{{CEO}}": CEO,
+                         "{{ROOT}}": str(ROOT), "{{AGENT}}": agent})
+    for k, v in replacements.items():
         text = text.replace(k, v)
     return text
 
@@ -112,6 +158,9 @@ def chownr(p, uid, g, dmode, fmode):
 shared = ROOT / "shared"
 shared.mkdir(exist_ok=True)
 os.chown(shared, 0, gid); os.chmod(shared, 0o2775)
+# create shared/workqueue.sqlite3 and its database tables before employees start
+# this only prepares the shared database employees will use. It does not add work to the queue.
+initialize_workqueue(ROOT, gid)
 handbook = ROOT / "handbook.md"
 if not handbook.exists():
     handbook.write_text(render("templates/handbook.md", f"{PREFIX}-*"))
