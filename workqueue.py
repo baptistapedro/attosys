@@ -103,7 +103,11 @@ def connect(path=None):
           FOREIGN KEY(item_id) REFERENCES items(id)
         );
         """)
-        os.chmod(path, 0o660)
+        # The provisioned database is root-owned and group-writable. Employees
+        # can use it through the company group, but cannot chmod a root-owned file.
+        file_stat = path.stat()
+        if os.geteuid() == 0 or file_stat.st_uid == os.geteuid():
+            os.chmod(path, 0o660)
         return db
     finally:
         os.umask(old_umask)
