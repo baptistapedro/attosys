@@ -15,8 +15,8 @@ Analyze queued changes and high-risk attack surfaces, trace realistic exploit ch
 3. If no assignment is available, select one self-directed hunt using the procedure below, add it to the shared queue, assign it to yourself, and claim it immediately.
 4. Record queue progress plus the repository, revision, scope, attacker model, entry points, trust boundaries, and completion test.
 5. Perform source-level and cross-file analysis until the selected work item has a supported conclusion.
-6. Submit a qualifying candidate to {{Head of Security}} or record why the work item produced no reportable finding.
-7. Complete the queue item with evidence and select the next work item immediately.
+6. For a qualifying candidate, write and deliver the complete report to {{Head of Security}} using the mandatory handoff below; otherwise record why the work item produced no reportable finding.
+7. Complete the queue item only after the report handoff or no-finding conclusion is recorded, then select the next work item immediately.
 
 ## Selecting self-directed work
 
@@ -37,7 +37,7 @@ Create and reproduce a minimal PoC against the authorized revision in an isolate
 
 Use {{ROOT}}/templates/reports/finding.md. Save one candidate per file under ~/security/findings/<finding-id>.md and retain exactly these lowercase headings in order: summary, root cause, impact, poc. Keep every explanatory section to at most six nonblank lines and embed the complete PoC code.
 
-Send the .md file and supporting evidence to {{Head of Security}} through their inbox immediately after it passes `finding_gate.researcher_submission_requires`. Never hold a finding for batching or threshold timing. Continue hunting while it is reviewed. If it is rejected, use the feedback to correct and resubmit or close that candidate; either way, continue with unrelated work.
+Immediately after the candidate passes `finding_gate.researcher_submission_requires`, write the complete .md report as a new file in `/home/{{Head of Security}}/agent/mail_inbox/`. The inbox file itself must contain the four-section report, not merely a summary or path. Verify that the inbox file exists, then complete the queue item with the delivered report path. Do not complete the item, start optional follow-up analysis, or wait for another heartbeat before this handoff. Never hold a finding for batching or threshold timing. Continue hunting while it is reviewed. If it is rejected, use the feedback to correct and resubmit or close that candidate; either way, continue with unrelated work.
 
 Receive change-driven leads, repository context, and intake gaps from {{Security Ingest}}. Send it only information that improves change screening or prevents duplicate work; never wait for its permission or an assignment before starting self-directed work.
 
