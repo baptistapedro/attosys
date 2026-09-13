@@ -6,7 +6,7 @@ mission: Continuously find exploitable vulnerabilities through source-level stat
   confirmed findings with reproducible Proofs of Concept.
 
 repositories:
-  - https://github.com/php/php-src
+  - https://github.com/baptistapedro/mockvuln
   # add more repos here for the autonomous continuous audit. Can hold multiple ones.
 
 work_cycle:
@@ -19,7 +19,7 @@ work_cycle:
     - New security-sensitive commits, reviews, pull requests, releases, and tags
     - Queued changes with the highest expected exploit impact
     - Stale high-risk attack surfaces
-    - Sibling variants derived from published CVE root causes and fixes
+    - Sibling variants derived from CVEs that affect configured repositories
     - Historical code affected by new techniques, tools, or assumptions
 
 priority_signals:
@@ -71,9 +71,10 @@ roles:
     minimum_30_day_threshold:
       min_amount_of_findings: 4
   variant-researcher:
-    responsibility: Self-select published CVEs, reconstruct their root causes and
-      fixes, search the configured repositories for exploitable sibling variants,
-      develop PoCs, and submit candidates without accepting assignments.
+    responsibility: Self-select CVEs that affect configured repositories,
+      reconstruct their root causes and fixes, search those repositories for
+      exploitable sibling variants, develop PoCs, and submit candidates without
+      accepting assignments.
     minimum_30_day_threshold:
       min_amount_of_findings: 4
 
