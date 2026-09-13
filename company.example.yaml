@@ -68,6 +68,6 @@ agents:
       intake leads, then produces reproducible candidate findings for independent
       confirmation.
   variant-researcher:
-    description: Independently selects published CVEs, reconstructs their root
-      causes, and hunts configured repositories for sibling variants and incomplete
-      fixes without accepting assignments.
+    description: Independently selects CVEs that affect configured repositories,
+      reconstructs their root causes, and hunts those repositories for sibling
+      variants and incomplete fixes without accepting assignments.
