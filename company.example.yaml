@@ -37,6 +37,7 @@ proxy_url: http://127.0.0.1:8810
 # One entry per agent. Key = role; unix user = <org>-<key>.
 # soul: which template in templates/souls/ to use (defaults to the key —
 #   set it when cloning a role, e.g. labs-2 with soul: labs).
+# skills: technical methods available to the role under templates/skills/.
 # topic_id: the agent's forum topic. setup.sh creates one topic per agent
 #   (via the bot's Bot API) and fills this in — leave it out by hand.
 agents:
@@ -58,16 +59,30 @@ agents:
     description: Company trainer. Coaches agents on company principles and best
       practices; audits, training cases, knowledge spread.
   head-of-security:
+    skills:
+      - security/independent-finding-triage
     description: Independently validates candidate findings and sends confirmed
       findings to the CEO.
   security-ingest:
+    skills:
+      - security/change-risk-screening
     description: Monitors repository changes and sends ranked leads only to the
       security-researcher role.
   security-researcher:
+    skills:
+      - security/attack-surface-analysis
+      - security/exploit-chain-analysis
+      - security/exploitability-assessment
+      - security/poc-development
     description: Performs autonomous source-derived zero-day hunting and analyzes
       intake leads, then produces reproducible candidate findings for independent
       confirmation.
   variant-researcher:
+    skills:
+      - security/patch-diff-variant-analysis
+      - security/exploit-chain-analysis
+      - security/exploitability-assessment
+      - security/poc-development
     description: Independently selects CVEs that affect configured repositories,
       reconstructs their root causes, and hunts those repositories for sibling
       variants and incomplete fixes without accepting assignments.
