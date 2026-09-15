@@ -127,6 +127,16 @@ def emit(value):
     print(json.dumps(value, indent=2, sort_keys=True))
 
 
+def queue_priority(value):
+    try:
+        priority = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("priority must be a whole number from 0 through 100") from None
+    if not 0 <= priority <= 100:
+        raise argparse.ArgumentTypeError("priority must be a whole number from 0 through 100")
+    return priority
+
+
 def add(args):
     timestamp = now()
     who = actor()
@@ -332,7 +342,8 @@ def parser():
     command.add_argument("--title", required=True)
     command.add_argument("--details", default="")
     command.add_argument("--source", default="")
-    command.add_argument("--priority", type=int, default=0)
+    command.add_argument("--priority", type=queue_priority, default=0,
+                         help="whole number from 0 through 100; 100 is highest")
     command.add_argument("--role", help="required company role or soul")
     command.add_argument("--assignee", help="exact employee name")
     command.set_defaults(function=add)
