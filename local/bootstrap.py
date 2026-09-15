@@ -207,7 +207,7 @@ def bootstrap(options):
         raise ValueError('restore is incomplete; retry the original snapshot with a new --name')
     key = options.get("api_key") or ""
     workers = options.get("workers", True)
-    
+
     # use None as the explicit "no deadline" value for continuous runs. Otherwise, use a positive duration (default: 900 seconds).
     continuous = bool(options.get("continuous", False))
     duration_value = options.get("duration", 900)
@@ -233,10 +233,12 @@ def bootstrap(options):
         company = yaml.safe_load(company_path.read_text())
     else:
         default_company = load_mapping(ROOT / "company.example.yaml", "company.example.yaml")
-        company = {"org": "atto", "name": "Local Attosys", "ceo": {"name": "CEO", "telegram_user_id": 1},
+        company = {"org": "atto", "name": "Local Attosys",
+                   "ceo": {"name": "CEO", "telegram_user_id": 1,
+                           "inbox_from_roles": default_company.get("ceo", {}).get("inbox_from_roles", [])},
                    "mux_url": "http://127.0.0.1:8811",
-                   "provider": "openai", "model": options.get("model", "gpt-6-astra"), "proxy_url": "http://127.0.0.1:8810",
-                   "llm_env_file": str(ENV_FILE), "agent_config": {"provider": "openai_responses", "max_tokens": 4096, "multimodal_support": True},
+                   "model": options.get("model", "gpt-6-astra"), "api_base": "https://opencode.ai/zen/go/v1", "context_tokens": 100000,
+                   "llm_env_file": str(ENV_FILE), "agent_config": {"provider": "", "max_tokens": 4096, "temperature": 1.0, "multimodal_support": False, "reasoning_effort": ""},
                    "agents": default_company["agents"]}
     objectives_path = ROOT / "objectives.yaml"
     if not objectives_path.exists():
@@ -300,7 +302,7 @@ def bootstrap(options):
         subprocess.run(["systemctl", "stop", "atto-discovery-deadline.timer", "atto-discovery-deadline.service"], capture_output=True)
         subprocess.run(["systemctl", "reset-failed", "atto-discovery-deadline.service"], capture_output=True)
         write(READY, "ready\n", 0o600)
-        
+
         # For a finite run, create a transient systemd timer that stops employee workers after `duration` seconds.
         if duration is not None:
             run("systemd-run", "--unit=atto-discovery-deadline", "--timer-property=AccuracySec=1s", f"--on-active={duration}",
