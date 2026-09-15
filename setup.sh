@@ -66,7 +66,9 @@ prov = os.environ.get("PROVIDER") or ""
 template = yaml.safe_load(open("company.example.yaml"))
 company = {
     "org": org, "name": os.environ["NAME"],
-    "ceo": {"name": os.environ["CEO_NAME"], "telegram_user_id": int(os.environ["CEO_TGID"])},
+    "ceo": {"name": os.environ["CEO_NAME"],
+            "telegram_user_id": int(os.environ["CEO_TGID"]),
+            "inbox_from_roles": template.get("ceo", {}).get("inbox_from_roles", [])},
     "telegram_chat_id": "",
     "mux_url": f"http://127.0.0.1:{os.environ['MUX_PORT']}",
     "model": os.environ["MODEL"],
