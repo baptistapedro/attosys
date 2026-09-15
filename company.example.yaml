@@ -38,34 +38,41 @@ proxy_url: http://127.0.0.1:8810
 # soul: which template in templates/souls/ to use (defaults to the key —
 #   set it when cloning a role, e.g. labs-2 with soul: labs).
 # skills: technical methods available to the role under templates/skills/.
+# recommended_tools: the role's usual commands, never an allowlist.
 # topic_id: the agent's forum topic. setup.sh creates one topic per agent
 #   (via the bot's Bot API) and fills this in — leave it out by hand.
 agents:
   hr:
     sudo: true             # Chief of Staff runs provisioning; only agent with sudo
+    recommended_tools: [python3, workqueue.py, journalctl]
     description: Head of HR and Chief of Staff. Manages headcount, offboarding,
       performance monitoring, soul standards, workforce planning. As CoS,
       oversees the company, proactively reaches out to the team, and plans and
       improves systems and processes on the CEO's behalf.
   sysadmin:
+    recommended_tools: [systemctl, journalctl, ps, ss, df, du, git, python3]
     description: 'Systems Administrator. Owns and maintains the technical
       substrate: provisioning code, the mux, systemd units, the agent harness.
       Does not run people-ops (hr does that).'
   labs:
+    recommended_tools: [git, rg, curl, jq, python3, pip]
     description: Exploration and builder agent. Investigates tools and
       techniques, prototypes capabilities the company does not yet have, and
       publishes findings at shared/labs/<slug>/.
   trainer:
+    recommended_tools: [rg, python3, workqueue.py, journalctl]
     description: Company trainer. Coaches agents on company principles and best
       practices; audits, training cases, knowledge spread.
   head-of-security:
     skills:
       - security/independent-finding-triage
+    recommended_tools: [git, rg, curl, jq, gcc, clang, gdb, pwntools]
     description: Independently validates candidate findings and sends confirmed
       findings to the CEO.
   security-ingest:
     skills:
       - security/change-risk-screening
+    recommended_tools: [git, rg, curl, jq]
     description: Monitors repository changes and sends ranked leads only to the
       security-researcher role.
   security-researcher:
@@ -74,6 +81,7 @@ agents:
       - security/exploit-chain-analysis
       - security/exploitability-assessment
       - security/poc-development
+    recommended_tools: [git, rg, curl, jq, gcc, clang, gdb, pwntools]
     description: Performs autonomous source-derived zero-day hunting and analyzes
       intake leads, then produces reproducible candidate findings for independent
       confirmation.
@@ -83,6 +91,7 @@ agents:
       - security/exploit-chain-analysis
       - security/exploitability-assessment
       - security/poc-development
+    recommended_tools: [git, rg, curl, jq, gcc, clang, gdb, pwntools]
     description: Independently selects CVEs that affect configured repositories,
       reconstructs their root causes, and hunts those repositories for sibling
       variants and incomplete fixes without accepting assignments.
