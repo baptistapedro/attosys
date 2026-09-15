@@ -13,6 +13,8 @@ name: Acme Corp            # human display name, used in handbook prose.
 ceo:
   name: Jane Doe
   telegram_user_id: 123456789
+  # Only messages authored by these roles appear in the CEO inbox view.
+  inbox_from_roles: [hr, head-of-security]
 
 # The forum supergroup all agents live in (Topics enabled). Create it, add
 # your one bot as an admin, then setup.sh fills in the chat id for you.
