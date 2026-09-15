@@ -43,7 +43,9 @@ class MuxPersistence(unittest.TestCase):
         self.chat = f'http://127.0.0.1:{self.chat_port}'
         self.mux = f'http://127.0.0.1:{self.mux_port}/botatto-worker/getUpdates'
         company = {'org': 'atto', 'name': 'Test company', 'telegram_chat_id': '-1001',
-                   'telegram_api_base': self.chat, 'agents': {'worker': {'topic_id': 1}, 'other': {'topic_id': 2}}}
+                   'telegram_api_base': self.chat,
+                   'ceo': {'name': 'Test CEO', 'inbox_from_roles': ['worker']},
+                   'agents': {'worker': {'topic_id': 1}, 'other': {'topic_id': 2}}}
         (self.root / 'company.yaml').write_text(yaml.safe_dump(company))
         (self.root / 'secrets.yaml').write_text(yaml.safe_dump({'telegram_bot_token': 'local-test-token'}))
         self.env = {**os.environ, 'ATTOSYS_ROOT': str(self.root), 'CHAT_STATE': str(self.root / 'chat'),
@@ -91,6 +93,29 @@ class MuxPersistence(unittest.TestCase):
         self.mux_process = self.start(ROOT / 'mux/mux.py')
         wait_for(lambda: requests.post(self.mux, data={'offset': 0}, timeout=1).ok)
         self.assertEqual(requests.post(self.mux, data={'offset': 0}, timeout=2).json()['result'], [])
+
+    def test_operator_api_includes_attributed_ceo_inbox(self):
+        response = requests.post(self.chat + '/botlocal-test-token/sendMessage',
+                                 json={'chat_id': '-1001', 'message_thread_id': 1,
+                                       'text': 'confirmed finding'}, timeout=2)
+        response.raise_for_status()
+        state = requests.get(self.chat + '/api', headers={'X-Attobot-Lab': '1'}, timeout=2).json()
+        self.assertEqual(state['agents'][0], {'name': 'Test CEO inbox', 'topic': 'ceo-inbox'})
+        self.assertEqual(state['messages'][-1]['direction'], 'out')
+        self.assertEqual(state['messages'][-1]['employee'], 'atto-worker')
+        self.assertTrue(state['messages'][-1]['ceo_inbox'])
+        self.assertEqual(state['messages'][-1]['text'], 'confirmed finding')
+
+    def test_ceo_inbox_excludes_other_roles_and_harness_notices(self):
+        for topic, text in ((2, 'routine status'),
+                            (1, '<atto-worker> mail from atto-other\ninternal'),
+                            (1, '<atto-worker> [trigger subconscious-correction] internal')):
+            response = requests.post(self.chat + '/botlocal-test-token/sendMessage',
+                                     json={'chat_id': '-1001', 'message_thread_id': topic,
+                                           'text': text}, timeout=2)
+            response.raise_for_status()
+        state = requests.get(self.chat + '/api', headers={'X-Attobot-Lab': '1'}, timeout=2).json()
+        self.assertFalse(any(message['ceo_inbox'] for message in state['messages']))
 
 
 if __name__ == '__main__':
