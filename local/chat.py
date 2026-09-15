@@ -26,6 +26,17 @@ INSERT INTO cursor SELECT 0 WHERE NOT EXISTS(SELECT 1 FROM cursor);
 """)
 wake = asyncio.Event()
 polling = False
+CEO_INBOX = "ceo-inbox"
+
+
+def employee_authored(body, employee):
+    """Exclude harness-generated notices that merely reuse an employee topic."""
+    content = body.get("text") or body.get("caption") or ""
+    prefix = f"<{employee}> "
+    if content.startswith(prefix):
+        content = content[len(prefix):]
+    return not (content.startswith("mail from ") or
+                content.startswith("[trigger subconscious-"))
 
 
 def ok(result):
@@ -128,8 +139,24 @@ async def operator(request):
         return ok(message(data, "in", data.get("file")))
     company = yaml.safe_load((ROOT / "company.yaml").read_text())
     rows = db.execute("SELECT direction,body FROM (SELECT * FROM messages ORDER BY id DESC LIMIT 200) ORDER BY id").fetchall()
-    return web.json_response({"company": company["name"], "agents": [{"name": f"{company['org']}-{role}", "topic": spec.get("topic_id")} for role, spec in company["agents"].items()],
-                              "messages": [{"direction": row[0], **json.loads(row[1])} for row in rows]})
+    agents = [{"name": f"{company['org']}-{role}", "topic": spec.get("topic_id")}
+              for role, spec in company["agents"].items()]
+    identities_by_topic = {str(spec["topic_id"]): (role, f"{company['org']}-{role}")
+                           for role, spec in company["agents"].items()
+                           if spec.get("topic_id") is not None}
+    ceo_roles = set(company.get("ceo", {}).get("inbox_from_roles") or [])
+    messages = []
+    for direction, encoded in rows:
+        body = json.loads(encoded)
+        role, employee = identities_by_topic.get(str(body.get("message_thread_id")), (None, None))
+        body["employee"] = employee
+        body["ceo_inbox"] = bool(direction == "out" and role in ceo_roles and
+                                  employee_authored(body, employee))
+        messages.append({"direction": direction, **body})
+    ceo_name = company.get("ceo", {}).get("name") or "CEO"
+    channels = [{"name": f"{ceo_name} inbox", "topic": CEO_INBOX}, *agents]
+    return web.json_response({"company": company["name"], "agents": channels,
+                              "messages": messages})
 
 
 async def page(request):
@@ -137,14 +164,17 @@ async def page(request):
 
 
 PAGE = """<!doctype html><html><meta charset=utf-8><title>Attosys local company</title>
-<style>body{max-width:1000px;margin:30px auto;font:15px system-ui;background:#151b20;color:#e2e9ee}header,form{display:flex;gap:12px;align-items:center}select,button,textarea,input{font:inherit;padding:8px;background:#24313a;color:inherit;border:1px solid #52616b;border-radius:5px}#messages{height:65vh;overflow:auto;margin:20px 0}article{white-space:pre-wrap;padding:12px;border-bottom:1px solid #34424b}small{color:#93a6b4}textarea{flex:1}#notice{min-height:24px;color:#edbd7d}</style>
+<style>body{max-width:1000px;margin:30px auto;font:15px system-ui;background:#151b20;color:#e2e9ee}header,form{display:flex;gap:12px;align-items:center}form[hidden]{display:none}select,button,textarea,input{font:inherit;padding:8px;background:#24313a;color:inherit;border:1px solid #52616b;border-radius:5px}#messages{height:65vh;overflow:auto;margin:20px 0}article{white-space:pre-wrap;padding:12px;border-bottom:1px solid #34424b}small{color:#93a6b4}textarea{flex:1}#notice{min-height:24px;color:#edbd7d}</style>
 <header><h2 id=company>Local company</h2><select id=topic></select><small>Real employees · real tools · real model</small></header>
 <div id=messages></div><div id=notice></div><form id=compose><textarea id=text placeholder="Talk to this employee"></textarea><input id=file type=file><button>Send</button></form>
 <script>
 const $=id=>document.getElementById(id);let state,signature='';
-function draw(){if(!state)return;const messages=state.messages.filter(m=>String(m.message_thread_id)===$('topic').value);const key=JSON.stringify(messages);if(key===signature)return;signature=key;const panel=$('messages'),stick=panel.scrollHeight-panel.scrollTop-panel.clientHeight<100;panel.replaceChildren();for(const m of messages){const a=document.createElement('article');a.textContent=(m.direction==='in'?'CEO: ':'')+(m.text||m.caption||'');const f=m.document||m.photo?.[0]||m.audio||m.voice||m.video;if(f){const link=document.createElement('a');link.textContent=' Download '+f.file_name;link.href='/files/'+f.file_id;link.download=f.file_name;a.append(link);}panel.append(a);}if(stick)panel.scrollTop=panel.scrollHeight;}
-async function refresh(){try{const r=await fetch('/api',{headers:{'X-Attobot-Lab':'1'}});if(!r.ok)throw Error('HTTP '+r.status);state=await r.json();$('company').textContent=state.company;const selected=$('topic').value;for(const a of state.agents){if(!a.topic||Array.from($('topic').options).some(o=>o.value===String(a.topic)))continue;const o=document.createElement('option');o.value=a.topic;o.textContent=a.name;$('topic').append(o);}if(selected)$('topic').value=selected;draw();}catch(e){$('notice').textContent=e.message;}setTimeout(refresh,1000);}
-$('topic').onchange=()=>{signature='';draw();};$('compose').onsubmit=async e=>{e.preventDefault();const data=new FormData();data.set('text',$('text').value);data.set('message_thread_id',$('topic').value);if($('file').files[0])data.set('file',$('file').files[0]);try{const r=await fetch('/api',{method:'POST',headers:{'X-Attobot-Lab':'1'},body:data});if(!r.ok)throw Error('HTTP '+r.status);$('text').value='';$('file').value='';$('notice').textContent='Queued';}catch(e){$('notice').textContent=e.message;}};refresh();
+function isCeoInbox(){return $('topic').value==='ceo-inbox';}
+function displayText(m){let content=m.text||m.caption||'';if(isCeoInbox()){const prefix='<'+m.employee+'> ';if(content.startsWith(prefix))content=content.slice(prefix.length);return m.employee+': '+content;}return (m.direction==='in'?'CEO: ':'')+content;}
+function draw(){if(!state)return;const messages=state.messages.filter(m=>isCeoInbox()?m.ceo_inbox:String(m.message_thread_id)===$('topic').value);const key=JSON.stringify(messages);if(key===signature)return;signature=key;const panel=$('messages'),stick=panel.scrollHeight-panel.scrollTop-panel.clientHeight<100;panel.replaceChildren();for(const m of messages){const a=document.createElement('article');a.textContent=displayText(m);const f=m.document||m.photo?.[0]||m.audio||m.voice||m.video;if(f){const link=document.createElement('a');link.textContent=' Download '+f.file_name;link.href='/files/'+f.file_id;link.download=f.file_name;a.append(link);}panel.append(a);}if(stick)panel.scrollTop=panel.scrollHeight;}
+function selectChannel(){signature='';$('compose').hidden=isCeoInbox();draw();}
+async function refresh(){try{const r=await fetch('/api',{headers:{'X-Attobot-Lab':'1'}});if(!r.ok)throw Error('HTTP '+r.status);state=await r.json();$('company').textContent=state.company;const selected=$('topic').value;for(const a of state.agents){if(!a.topic||Array.from($('topic').options).some(o=>o.value===String(a.topic)))continue;const o=document.createElement('option');o.value=a.topic;o.textContent=a.name;$('topic').append(o);}if(selected)$('topic').value=selected;selectChannel();}catch(e){$('notice').textContent=e.message;}setTimeout(refresh,1000);}
+$('topic').onchange=selectChannel;$('compose').onsubmit=async e=>{e.preventDefault();if(isCeoInbox())return;const data=new FormData();data.set('text',$('text').value);data.set('message_thread_id',$('topic').value);if($('file').files[0])data.set('file',$('file').files[0]);try{const r=await fetch('/api',{method:'POST',headers:{'X-Attobot-Lab':'1'},body:data});if(!r.ok)throw Error('HTTP '+r.status);$('text').value='';$('file').value='';$('notice').textContent='Queued';}catch(e){$('notice').textContent=e.message;}};refresh();
 </script></html>"""
 
 app = web.Application(client_max_size=16 * 1024 * 1024)
