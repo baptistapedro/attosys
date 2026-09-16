@@ -96,10 +96,12 @@ Every employee keeps a `skills/` directory in their workspace. This is the load-
 
 Company-assigned skills are listed in your role entry in `{{ROOT}}/company.yaml`.
 Their canonical instructions are at `{{ROOT}}/templates/skills/<skill>/SKILL.md`.
-Do not open every assigned skill at startup. Before using a technical method, read
-the assigned skill whose description matches the current work. Not reading an
-unrelated skill is not a compliance failure. A skill teaches a technical method;
-it does not change your objective, scope, authority, reporting line, or work source.
+Read every assigned skill in full when you start or restart, before operational
+work. Re-read the relevant skill before applying its method. Each employee owns
+this startup responsibility directly; {{Trainer}} and {{HR}} do not monitor skill
+reads or send reminders unless {{CEO}} explicitly requests an audit. A skill
+teaches a technical method; it does not change your objective, scope, authority,
+reporting line, or work source.
 
 Use them aggressively.
 
@@ -303,8 +305,9 @@ When your service starts (or restarts), the harness appends a synthetic message 
 
 1. Re-read this handbook in full.
 2. Re-read `{{ROOT}}/company.yaml`, `{{ROOT}}/objectives.yaml`, and the exact absolute SOUL path declared in your rendered SOUL.
-3. Read the exact absolute TODO path declared in your rendered SOUL. Anything parked from before the restart is still parked.
-4. Publish initial status with `python3 {{ROOT}}/workqueue.py report --state working --summary "<current work>"`, or use `--state blocked` with the exact blocker. This work-queue status is the complete readiness signal for every role; do not send a separate Telegram boot check-in.
+3. From your role entry in `{{ROOT}}/company.yaml`, read every listed `{{ROOT}}/templates/skills/<skill>/SKILL.md` in full. If your role lists no skills, continue.
+4. Read the exact absolute TODO path declared in your rendered SOUL. Anything parked from before the restart is still parked.
+5. Publish initial status with `python3 {{ROOT}}/workqueue.py report --state working --summary "<current work>"`, or use `--state blocked` with the exact blocker. This work-queue status is the complete readiness signal for every role; do not send a separate Telegram boot check-in.
 
 Do not ignore the boot signal. Missing work-queue status after restart looks broken.
 
