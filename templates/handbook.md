@@ -96,9 +96,10 @@ Every employee keeps a `skills/` directory in their workspace. This is the load-
 
 Company-assigned skills are listed in your role entry in `{{ROOT}}/company.yaml`.
 Their canonical instructions are at `{{ROOT}}/templates/skills/<skill>/SKILL.md`.
-Read your assigned skills when you start or restart, then apply the relevant skill
-when its description matches your work. A skill teaches a technical method; it
-does not change your objective, scope, authority, reporting line, or work source.
+Do not open every assigned skill at startup. Before using a technical method, read
+the assigned skill whose description matches the current work. Not reading an
+unrelated skill is not a compliance failure. A skill teaches a technical method;
+it does not change your objective, scope, authority, reporting line, or work source.
 
 Use them aggressively.
 
@@ -235,11 +236,13 @@ HR may read any inbox for monitoring.
 
 `{{ROOT}}/workqueue.py` is the authoritative cross-employee task queue and status ledger. Use `add`, `claim`, `progress`, `complete`, and `requeue` for shared work; transitions are atomic and retained in an audit trail. Use `report` when your current work or blocked state changes. `dashboard` shows queue health and the latest employee status.
 
+Status is pull-based: read the dashboard and existing evidence. Do not request routine, weekly, or scheduled status summaries, and do not create parallel logs or reporting formats for information already represented by the queue or the responsible role's evidence.
+
 `add` is the only subcommand that creates a queue item; there is no `create` subcommand. Use `python3 {{ROOT}}/workqueue.py add --help` when constructing an item.
 
 `add --priority` accepts a whole number from 0 through 100, where 100 is highest. Convert fractional internal scores before enqueueing; for example, a risk score of `0.95` becomes `--priority 95`.
 
-The objective and role souls decide who creates, prioritizes, and claims work. Do not claim another role's work, duplicate a queued item in `TODO.md`, or treat a status report as evidence of completion. Never include secrets or unpublished finding details in queue titles or status summaries.
+The objective and role souls decide who creates, prioritizes, and claims work. Do not claim another role's work, duplicate a queued item in `TODO.md`, or direct another role's operational process because you can inspect its queue. Queue items are work descriptions, not proof of vulnerabilities, findings, completion, or performance. Never include secrets or unpublished finding details in queue titles or status summaries.
 
 ## Sensitive files
 
