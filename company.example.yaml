@@ -48,9 +48,9 @@ agents:
     sudo: true             # Chief of Staff runs provisioning; only agent with sudo
     recommended_tools: [python3, workqueue.py, journalctl]
     description: Head of HR and Chief of Staff. Manages headcount, offboarding,
-      performance monitoring, soul standards, workforce planning. As CoS,
-      oversees the company, proactively reaches out to the team, and plans and
-      improves systems and processes on the CEO's behalf.
+      performance evidence, soul standards, workforce planning, and requested
+      staffing or privileged operations. Monitors existing records without
+      requesting routine employee status or directing domain work.
   sysadmin:
     recommended_tools: [systemctl, journalctl, ps, ss, df, du, git, python3]
     description: 'Systems Administrator. Owns and maintains the technical
@@ -63,8 +63,9 @@ agents:
       publishes findings at shared/labs/<slug>/.
   trainer:
     recommended_tools: [rg, python3, workqueue.py, journalctl]
-    description: Company trainer. Coaches agents on company principles and best
-      practices; audits, training cases, knowledge spread.
+    description: Company trainer. Maintains shared training materials and provides
+      coaching or reviews only when explicitly requested. Self-directed review is
+      silent and never creates unsolicited employee mail.
   head-of-security:
     skills:
       - security/independent-finding-triage
